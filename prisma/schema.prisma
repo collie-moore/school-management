@@ -1,0 +1,331 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Organization Model - Each school is its own organization
+model Organization {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  logo             String?
+  primaryColor     String?
+  secondaryColor   String?
+  domain           String?
+  subscription     SubscriptionTier @default(BASIC)
+  settings         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  schools          School[]
+  campuses         Campus[]
+  users            User[]
+  students         Student[]
+  subjects         Subject[]
+  classes          Class[]
+  assignments      Assignment[]
+  grades           Grade[]
+
+  @@map("organizations")
+}
+
+enum SubscriptionTier {
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+// School Model
+model School {
+  id               String   @id @default(cuid())
+  organizationId   String
+  name             String
+  slug             String   @unique
+  logo             String?
+  primaryColor     String?
+  secondaryColor   String?
+  address          String?
+  phone            String?
+  email            String?
+  website          String?
+  settings         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campuses         Campus[]
+  subjects         Subject[]
+  students         Student[]
+  classes          Class[]
+  assignments      Assignment[]
+  grades           Grade[]
+
+  @@map("schools")
+}
+
+// Campus Model
+model Campus {
+  id               String   @id @default(cuid())
+  organizationId   String
+  schoolId         String
+  name             String
+  slug             String
+  address          String?
+  phone            String?
+  email            String?
+  capacity         Int?
+  grades           String[] // Array of grade levels offered
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  school           School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  students         Student[]
+  classes          Class[]
+
+  @@unique([schoolId, slug])
+  @@map("campuses")
+}
+
+// User Model - Staff, Teachers, Admins, etc.
+model User {
+  id               String   @id @default(cuid())
+  name             String
+  email            String   @unique
+  password         String
+  role             UserRole
+  organizationId   String
+  permissions      String[] // Array of permission strings
+  avatar           String?
+  phone            String?
+  address          String?
+  settings         Json?
+  isActive         Boolean  @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  classesTeaching  Class[]
+  assignments      Assignment[]
+  grades           Grade[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  PLATFORM_OWNER
+  ORG_ADMIN
+  SCHOOL_PRINCIPAL
+  ASSISTANT_PRINCIPAL
+  TEACHER
+  COUNSELOR
+  LIBRARIAN
+  NURSE
+  JANITOR
+  PARENT
+  STUDENT
+}
+
+// Student Model
+model Student {
+  id               String   @id @default(cuid())
+  firstName        String
+  lastName         String
+  email            String?
+  studentId        String   @unique
+  grade            String
+  dateOfBirth      DateTime
+  enrollmentDate   DateTime
+  organizationId   String
+  schoolId         String
+  campusId         String
+  guardianName     String?
+  guardianEmail    String?
+  guardianPhone    String?
+  address          String?
+  emergencyContact Json?
+  medicalInfo      Json?
+  isActive         Boolean  @default(true)
+  graduationYear   Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  school           School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  campus           Campus @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  classEnrollments ClassStudent[]
+  grades           Grade[]
+
+  @@map("students")
+}
+
+// Subject Model
+model Subject {
+  id               String   @id @default(cuid())
+  name             String
+  code             String
+  description      String?
+  organizationId   String
+  schoolId         String
+  department       String?
+  credits          Int?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  school           School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classes          Class[]
+
+  @@unique([schoolId, code])
+  @@map("subjects")
+}
+
+// Class Model
+model Class {
+  id               String   @id @default(cuid())
+  name             String
+  code             String
+  description      String?
+  organizationId   String
+  schoolId         String
+  campusId         String
+  subjectId        String
+  teacherId        String
+  grade            String
+  academicYear     String
+  semester         String?
+  schedule         Json? // Days, times, room, etc.
+  maxStudents      Int?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  school           School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  campus           Campus @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  subject          Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher          User @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  studentEnrollments ClassStudent[]
+  assignments      Assignment[]
+  grades           Grade[]
+
+  @@unique([schoolId, code])
+  @@map("classes")
+}
+
+// Class-Student Junction Table
+model ClassStudent {
+  id               String   @id @default(cuid())
+  classId          String
+  studentId        String
+  enrollmentDate   DateTime @default(now())
+  status           EnrollmentStatus @default(ACTIVE)
+  finalGrade       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  class            Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student          Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, studentId])
+  @@map("class_students")
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  DROPPED
+  COMPLETED
+  TRANSFERRED
+}
+
+// Assignment Model
+model Assignment {
+  id               String   @id @default(cuid())
+  title            String
+  description      String?
+  classId          String
+  teacherId        String
+  organizationId   String
+  schoolId         String
+  dueDate          DateTime?
+  totalPoints      Int?
+  type             AssignmentType
+  instructions     String?
+  attachments      Json? // Array of file URLs
+  isPublished      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  school           School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class            Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher          User @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  grades           Grade[]
+
+  @@map("assignments")
+}
+
+enum AssignmentType {
+  HOMEWORK
+  TEST
+  QUIZ
+  PROJECT
+  ESSAY
+  LAB
+  PRESENTATION
+  EXAM
+}
+
+// Grade Model
+model Grade {
+  id               String   @id @default(cuid())
+  studentId        String
+  assignmentId     String
+  classId          String
+  teacherId        String
+  organizationId   String
+  schoolId         String
+  points           Float?
+  totalPoints      Float?
+  percentage       Float?
+  letterGrade      String?
+  comments         String?
+  isExcused        Boolean  @default(false)
+  submissionDate   DateTime?
+  gradedAt         DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  student          Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment       Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  class            Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher          User @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  school           School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, assignmentId])
+  @@map("grades")
+}
