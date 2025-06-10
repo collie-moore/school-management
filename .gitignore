@@ -25,4 +25,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-/lib/generated/prisma
+# Prisma client is now generated to node_modules
